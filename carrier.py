@@ -1,6 +1,7 @@
-from abc import ABC, abstractmethod
-from typing import Mapping, ClassVar, List, Callable, Optional
+from abc import ABC
+from typing import Mapping, ClassVar, List, Callable, Optional, Type, Generator
 from datetime import date
+from decimal import Decimal
 
 import lxml.html
 
@@ -14,8 +15,7 @@ class Carrier(ABC):
 
     name = "Generic carrier"
 
-    # The root of the page of XPath searches.
-    tree: lxml.html.HtmlElement
+    system_name = "GENERIC_CARRIER"
 
     # The XPath address of each policy item.
     POLICIES: str
@@ -26,12 +26,13 @@ class Carrier(ABC):
     # The policy type this carrier will return.
     policy_type: any
 
+    # The root of the page of XPath searches.
     tree: Optional[lxml.html.HtmlElement] = None
 
     DateSeparators = frozenset(['-', '/'])
 
     @classmethod
-    def us_date(cls, date_in: str, reverse=True) -> date:
+    def us_date(cls, date_in: str) -> date:
         """
         Takes a string date in 'dd/mm/yyyy' format and converts it into a Python date.
         :param date_in: A text date in dd/mm/yyyy format.
@@ -48,8 +49,7 @@ class Carrier(ABC):
         raise ValueError(f'Date format cannot be handled for input: "{date_in}".')
 
     @staticmethod
-    def to_decimal(number: str):
-        from decimal import Decimal
+    def to_decimal(number: str) -> Decimal:
         if number.endswith('%'):
             number = number[:-1]
         number = number.split(' ')[1]
@@ -61,7 +61,7 @@ class Carrier(ABC):
         """
 
     @classmethod
-    def fetch_policies(cls, tree: lxml.html.HtmlElement, xpath: str):
+    def fetch_policies(cls, tree: lxml.html.HtmlElement, xpath: str) -> Generator[lxml.html.HtmlElement, None, None]:
         """
         Generator for all the policies of this carrier.
         """
@@ -69,7 +69,7 @@ class Carrier(ABC):
             yield policy
 
     @classmethod
-    def fetch_policy(cls, policy: lxml.html.HtmlElement, policy_type):
+    def fetch_policy(cls, policy: lxml.html.HtmlElement, policy_type) -> Optional[Type[Policy]]:
         """
         Fetch data for a single policy and build its object.
         """
@@ -87,7 +87,7 @@ class Carrier(ABC):
         return result
 
     # The XPath coordinates to get the Agent information on this page.
-    agents_xpath: Mapping[Agent.Fields, IndexedXpath] = {}
+    agent_xpath: Mapping[Agent.Fields, IndexedXpath] = {}
 
     # The XPath coordinates to get the Customer information on this page.
     customer_xpath: Mapping[Customer.Fields, IndexedXpath] = {}

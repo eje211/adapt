@@ -1,7 +1,7 @@
 from carrier import Carrier, Policy
 from decimal import *
 from customtypes import PolicyFields, Status, Agent, Customer, IndexedXpath
-from typing import ClassVar, Mapping, List, Callable
+from typing import ClassVar, Mapping, List, Callable, Generator
 from datetime import date
 import lxml.html
 from dataclasses import dataclass
@@ -71,13 +71,15 @@ class Placeholder(Carrier):
 
     name = "Placeholder Insurance"
 
+    system_name = 'PLACEHOLDER_CARRIER'
+
     URI = 'https://scraping-interview.onrender.com/placeholder_carrier/f02dkl4e/policies/1'
 
     POLICIES = '//tr[contains(@class, "policy-info-row")]'
 
     policy_type = PlaceholderPolicy
 
-    agents_xpath: Mapping[Agent.Fields, IndexedXpath] = {
+    agent_xpath: Mapping[Agent.Fields, IndexedXpath] = {
         Agent.Fields.Name:
             IndexedXpath('//label[@for="name"]/following-sibling::span/text()', 0),
         Agent.Fields.ProducerCode:
@@ -110,7 +112,7 @@ class Placeholder(Carrier):
         return uri
 
     @classmethod
-    def fetch_on_this_page(cls, node):
+    def fetch_on_this_page(cls, node) -> Generator[lxml.html.HtmlElement, None, None]:
         for policy in node.xpath(cls.POLICIES):
             details = policy.xpath('following-sibling::tr')
             parent = lxml.html.HtmlElement('div')
@@ -121,25 +123,24 @@ class Placeholder(Carrier):
             yield page
 
     @classmethod
-    def change_page(cls, node):
+    def change_page(cls, node) -> Generator[lxml.html.HtmlElement, None, None]:
         next_link = node.xpath('//tfoot//a[contains(., "Next")]/@href')
         if len(next_link) == 0:
             return
-            # next_link = next_link[0].split('=')[1][1:-1]
         next_link = cls.host() + next_link[0]
-        for pages in  cls.get_next_page(next_link):
-            for page in pages:
-                yield page
+        for page in cls.get_next_page(next_link):
+            yield page
 
     @classmethod
-    def get_next_page(cls, link):
+    def get_next_page(cls, link) -> Generator[lxml.html.HtmlElement, None, None]:
         from fetchdata import FetchData
         next_page = FetchData.uri_to_xpath(link)
         cls.tree = next_page
-        yield cls.fetch_policies(next_page, None)
+        for policy in cls.fetch_policies(next_page, None):
+            yield policy
 
     @classmethod
-    def fetch_policies(cls, tree: lxml.html.HtmlElement, _=None):
+    def fetch_policies(cls, tree: lxml.html.HtmlElement, _=None) -> Generator[Policy, None, None]:
         if tree is not None:
             policies = cls.fetch_on_this_page(tree)
             for policy in policies:
@@ -147,7 +148,6 @@ class Placeholder(Carrier):
                     yield policy
                 else:
                     yield cls.fetch_policy(policy)
-
 
     @classmethod
     def fetch_policy(cls, tree: lxml.html.HtmlElement, _=None):

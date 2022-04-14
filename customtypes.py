@@ -1,7 +1,8 @@
 from dataclasses import dataclass
-from typing import ClassVar, Mapping, Optional, Callable
+from typing import ClassVar, Mapping, Optional, Callable, List, Type
 from collections import namedtuple
 from enum import Enum, auto
+from carrier import Policy
 
 
 IndexedXpath = namedtuple('IndexedXpath', ['xpath', 'place'])
@@ -41,6 +42,8 @@ class Customer:
     id: str
     email: str
     address: str
+    agent: Agent
+    policies: List[Type[Policy]]
     ssn: Optional[int] = None
 
     class Fields(Enum):

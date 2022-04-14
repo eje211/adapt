@@ -2,7 +2,7 @@ import lxml.html
 from carrier import Carrier, Policy
 from decimal import *
 from customtypes import PolicyFields, Status, Agent, Customer, IndexedXpath
-from typing import ClassVar, Mapping, List, Optional, Callable
+from typing import ClassVar, Mapping, List, Optional, Callable, Generator, Type
 from datetime import date
 from dataclasses import dataclass
 
@@ -64,6 +64,8 @@ class Mock(Carrier):
 
     name = "Mock Indemnity"
 
+    system_name = "MOCK_INDEMNITY"
+
     policy_type = MockPolicy
 
     tree: Optional[lxml.html.HtmlElement] = None
@@ -72,7 +74,7 @@ class Mock(Carrier):
 
     POLICIES = '//li[@class="list-group-item"]'
 
-    agents_xpath: ClassVar[Mapping[Agent.Fields, IndexedXpath]] = {
+    agent_xpath: ClassVar[Mapping[Agent.Fields, IndexedXpath]] = {
         PolicyFields.Id: IndexedXpath('id', 0),
         PolicyFields.Premium: IndexedXpath('premium', 0),
         PolicyFields.Status: IndexedXpath('status', 0),
@@ -95,7 +97,7 @@ class Mock(Carrier):
     }
 
     @classmethod
-    def fetch_policies(cls,  policy: lxml.html.HtmlElement, _):
+    def fetch_policies(cls,  policy: lxml.html.HtmlElement, _) -> Generator[Type[Policy]]:
         for policy_object in Carrier.fetch_policies(policy, cls.POLICIES):
             yield cls.fetch_policy(policy_object)
 

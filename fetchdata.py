@@ -2,9 +2,10 @@ import urllib.request
 
 import lxml.html
 
-from carrier import Carrier
-from customtypes import Customer, Agent, PolicyFields
+from carrier import Carrier, Policy
+from customtypes import Customer, Agent
 from lxml.html.soupparser import fromstring
+from typing import Type, List
 
 
 class FetchData:
@@ -12,27 +13,34 @@ class FetchData:
     agents = {}
     policies = {}
 
-    def __init__(self, carrier: Carrier):
+    def __init__(self, carrier: Type[Carrier]):
         self.carrier = carrier
         self.uri = self.carrier.URI
         self.data = {}
 
-    def fetch_all(self):
+    def fetch_my_carrier(self):
         """
         Scrape all the data for the loaded agency and store it in this instance.
         """
+        self.get_root()
         print(f'Getting customer data for {self.carrier.name} ...')
-        self.data['customer_data'] = self.scrape_unique_item(Customer)
-        print(f'Getting carrier data for {self.carrier.name} ...')
-        self.data['agent_data'] = self.scrape_unique_item(Agent)
+        self.data['customer_data']: Customer = self.scrape_unique_item(Customer, 'customer')
+        print(f'Getting agent data for {self.carrier.name} ...')
+        self.data['agent_data']: Agent = self.scrape_unique_item(Agent, 'agent')
+        # Let's link the customer with the agent and policies here.
         print(f'Getting policy data for {self.carrier.name} ...')
-        self.data['policy_data'] = self.scrape_policies()
+        self.data['policy_data']: List[Type[Policy]] = self.scrape_policies()
         print('Aggregating...')
-        self.customers[self.data['customer_data'][Customer.Fields.Id]] = self.data['customer_data']
-        self.agents[self.data['agent_data'][Agent.Fields.Id]] = self.data['agent_data']
+
+        # We're in a non-relational database context anyway.
+        self.data['customer_data'].agent = self.data['agent_data']
+        self.data['customer_data'].policies = self.data['policy_data']
+
+        self.customers[self.data['customer_data'].id] = self.data['customer_data']
+        self.agents[self.data['agent_data'].producer_code] = self.data['agent_data']
         for policy in self.data['policy_data']:
-            self.policies[policy[PolicyFields.Id]] = policy
-        print('All the data has been scraped and aggregated.')
+            self.policies[policy.id] = policy
+        print(f'All the data for the carrier {self.carrier.name} has been scraped and aggregated.')
 
     @staticmethod
     def encoding() -> str:
@@ -57,19 +65,27 @@ class FetchData:
         Fetch the raw HTML text specified by this carrier's URI. Turn into a tree usable by XPath.
         Set the value to the "tree" member of this instance.
         """
+        if self.carrier.tree is not None:
+            return
         self.carrier.tree = self.uri_to_xpath(self.uri)
 
-    def scrape_unique_item(self, cls):
+    def scrape_unique_item(self, cls, data_point: str):
         """
         Scrapes an item that is unique within an entry, as opposed to iterated items.
         Given that the data can be different from one carrier to the next, if Python were really used,
         it would be a good idea to use keyword attribute rather than placed attributes.
         :param cls: The type of the item to return.
+        :param data_point: The type of top-level data to get, "agent" or "customer".
         :return: An object representing the scraped data.
         """
         fields = []
-        for field in cls:
-            indexed_xpath = self.carrier.customer_xpath[field]
+        data_point += '_xpath'
+        for field in cls.Fields:
+            try:
+                indexed_xpath = getattr(self.carrier, data_point)[field]
+            except KeyError:
+                print(f'missing: {field}')
+                continue
             node = self.carrier.tree.xpath(indexed_xpath.xpath)
             text = None
             if isinstance(node, list):
@@ -77,10 +93,10 @@ class FetchData:
             elif isinstance(node, str):
                 text = node
             if text:
-                fields.append(Customer.types[field](text))
+                fields.append(cls.types[field](text))
         return cls(*fields)
 
     def scrape_policies(self):
         self.get_root()
-        for policy in list(self.carrier.fetch_policies(self.carrier.tree, self.carrier.POLICIES)):
+        for policy in self.carrier.fetch_policies(self.carrier.tree, self.carrier.POLICIES):
             yield policy

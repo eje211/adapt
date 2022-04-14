@@ -9,14 +9,14 @@ from typing import Type, List
 
 
 class FetchData:
-    customers = {}
-    agents = {}
-    policies = {}
 
     def __init__(self, carrier: Type[Carrier]):
         self.carrier = carrier
         self.uri = self.carrier.URI
         self.data = {}
+        self.customers = {}
+        self.agents = {}
+        self.policies = {}
 
     def fetch_my_carrier(self):
         """
@@ -40,6 +40,7 @@ class FetchData:
         self.agents[self.data['agent_data'].producer_code] = self.data['agent_data']
         for policy in self.data['policy_data']:
             self.policies[policy.id] = policy
+        self.data['customer_data'].policies = self.policies
         print(f'All the data for the carrier {self.carrier.name} has been scraped and aggregated.')
 
     @staticmethod
@@ -69,7 +70,7 @@ class FetchData:
             return
         self.carrier.tree = self.uri_to_xpath(self.uri)
 
-    def scrape_unique_item(self, cls, data_point: str):
+    def scrape_unique_item(self, cls, data_point: str) -> List:
         """
         Scrapes an item that is unique within an entry, as opposed to iterated items.
         Given that the data can be different from one carrier to the next, if Python were really used,
@@ -96,7 +97,11 @@ class FetchData:
                 fields.append(cls.types[field](text))
         return cls(*fields)
 
-    def scrape_policies(self):
+    def scrape_policies(self) -> List[Type[Policy]]:
+        """
+        Get all the policy object from the current carrier.
+        :return:  A list of policy objects.
+        """
         self.get_root()
         for policy in self.carrier.fetch_policies(self.carrier.tree, self.carrier.POLICIES):
             yield policy

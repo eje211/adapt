@@ -43,22 +43,22 @@ class PlaceholderPolicy(Policy):
 
     policy_xpath: ClassVar[Mapping[PolicyFields, IndexedXpath]] = {
         PolicyFields.Id:
-            IndexedXpath('//td/text()', 0),
+            IndexedXpath('.//td/text()', 0),
         PolicyFields.Premium:
-            IndexedXpath('//td/text()', 1),
+            IndexedXpath('.//td/text()', 1),
         PolicyFields.Status:
-            IndexedXpath('//td/text()', 2),
+            IndexedXpath('.//td/text()', 2),
         PolicyFields.EffectiveDate:
-            IndexedXpath('//td/text()', 3),
+            IndexedXpath('.//td/text()', 3),
         PolicyFields.TerminationDate:
-            IndexedXpath('//td/text()', 4),
+            IndexedXpath('.//td/text()', 4),
         PolicyFields.LastPaymentDate:
-            IndexedXpath('substring((//td[@class="details-row"]/div/text()), 19)', 2),
+            IndexedXpath('substring((.//td[@class="details-row"]/div/text()), 19)', 2),
         PolicyFields.CommissionRate:
-            IndexedXpath('substring((//td[@class="details-row"]/div/text())[2], 15)', 0),
+            IndexedXpath('substring((.//td[@class="details-row"]/div/text())[2], 15)', 0),
         # Only works up to two digits. A type function can be made to handle more:
         PolicyFields.NumberOfInsured:
-            IndexedXpath('substring((//td[@class="details-row"]/div/text())[3], 20)', 0),
+            IndexedXpath('substring((.//td[@class="details-row"]/div/text())[3], 20)', 0),
     }
 
 
@@ -107,12 +107,21 @@ class Placeholder(Carrier):
 
     @classmethod
     def host(cls) -> str:
+        """
+        Get the current hostname of the page as defined in the source.
+        :return: The hostname of the page.
+        """
         uri = cls.URI.split('/')[:3]
         uri = '/'.join(uri)
         return uri
 
     @classmethod
     def fetch_on_this_page(cls, node) -> Generator[lxml.html.HtmlElement, None, None]:
+        """
+        Scrape the data on the current page only.
+        :param node: The address of the XML on the current page.
+        :return: A reference to the XML object on the current page.
+        """
         for policy in node.xpath(cls.POLICIES):
             details = policy.xpath('following-sibling::tr')
             parent = lxml.html.HtmlElement('div')
@@ -123,7 +132,12 @@ class Placeholder(Carrier):
             yield page
 
     @classmethod
-    def change_page(cls, node) -> Generator[lxml.html.HtmlElement, None, None]:
+    def change_page(cls, node: lxml.html.HtmlElement) -> Generator[lxml.html.HtmlElement, None, None]:
+        """
+        Find the address of the next page on the current page, if there is one.
+        :param node: The XML object of the current page.
+        :return: The XML object of the next page.
+        """
         next_link = node.xpath('//tfoot//a[contains(., "Next")]/@href')
         if len(next_link) == 0:
             return
@@ -132,7 +146,12 @@ class Placeholder(Carrier):
             yield page
 
     @classmethod
-    def get_next_page(cls, link) -> Generator[lxml.html.HtmlElement, None, None]:
+    def get_next_page(cls, link: str) -> Generator[lxml.html.HtmlElement, None, None]:
+        """
+        Download the next page and product its XML object from a given link.
+        :param link: The link to the next page.
+        :return: The XML object to the next page.
+        """
         from fetchdata import FetchData
         next_page = FetchData.uri_to_xpath(link)
         cls.tree = next_page

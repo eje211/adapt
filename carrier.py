@@ -8,6 +8,52 @@ import lxml.html
 from customtypes import PolicyFields, Customer, Agent, IndexedXpath
 
 
+class Policy(ABC):
+    """
+    A policy is a datatype that is present within a carrier page.
+    Each policy type should inherit this class.
+    """
+
+    # Where each part of one policy can be found from a given XPath node.
+    policy_xpath: ClassVar[Mapping[PolicyFields, IndexedXpath]] = {}
+
+    # Not all carriers use all the possible fields.
+    # These are the ones the current carrier uses.
+    used_fields: ClassVar[List[PolicyFields]] = []
+
+    # The callables that will be used to convert the data to the correct type.
+    # It may not be the data type itself. See for example, Carrier.us_date.
+    # This should probably be renamed.
+    data_types: ClassVar[Mapping[PolicyFields, Callable]] = {}
+
+    _serialize = ['id', 'premium', 'status', 'effective_date', 'effective_date',
+                  'termination_date', 'last_payment_date', 'commission_rate', 'number_of_insured']
+
+    def to_dict(self) -> dict:
+        """
+        Serialize to a dictionary.
+        This method should not need to be overridden.
+        """
+        policy_copy = self.__dict__.copy()
+
+        for key in policy_copy.copy().keys():
+            if key not in self._serialize:
+                del policy_copy[key]
+
+        policy_copy['status'] = policy_copy['status'].name
+
+        for date_type in ['effective_date', 'termination_date', 'last_payment_date']:
+            policy_copy[date_type] = policy_copy[date_type].isocalendar()
+
+        for decimal in ['commission_rate', 'premium']:
+            try:
+                policy_copy[decimal] = float(policy_copy[decimal])
+            except KeyError:
+                pass
+
+        return policy_copy
+
+
 class Carrier(ABC):
     """
     An abstract class that all carriers will be based on.
@@ -50,15 +96,17 @@ class Carrier(ABC):
 
     @staticmethod
     def to_decimal(number: str) -> Decimal:
+        """
+        Takes a string as present in the HTML pages and converts it to a Python Decimal format.
+        For financial information, neither integers nor floats are precise enough, and keeping the
+        information as strings is error-pone.
+        :param number: The number as a string.
+        :return: The number in pythvon Decimal type.
+        """
         if number.endswith('%'):
             number = number[:-1]
         number = number.split(' ')[1]
         return Decimal(number)
-
-    class Policy:
-        """
-        Information and details about a single policy.
-        """
 
     @classmethod
     def fetch_policies(cls, tree: lxml.html.HtmlElement, xpath: str) -> Generator[lxml.html.HtmlElement, None, None]:
@@ -73,8 +121,6 @@ class Carrier(ABC):
         """
         Fetch data for a single policy and build its object.
         """
-        if policy is None or policy_type is Carrier.Policy:
-            return
         attributes = []
         for field in policy_type.used_fields:
             xpath = policy_type.policy_xpath[field]
@@ -91,22 +137,3 @@ class Carrier(ABC):
 
     # The XPath coordinates to get the Customer information on this page.
     customer_xpath: Mapping[Customer.Fields, IndexedXpath] = {}
-
-
-class Policy(ABC):
-    """
-    A policy is a datatype that is present within a carrier page.
-    Each policy type should inherit this class.
-    """
-
-    # Where each part of one policy can be found from a given XPath node.
-    policy_xpath: ClassVar[Mapping[PolicyFields, IndexedXpath]] = {}
-
-    # Not all carriers use all the possible fields.
-    # These are the ones the current carrier uses.
-    used_fields: ClassVar[List[PolicyFields]] = []
-
-    # The callables that will be used to convert the data to the correct type.
-    # It may not be the data type itself. See for example, Carrier.us_date.
-    # This should probably be renamed.
-    data_types: ClassVar[Mapping[PolicyFields, Callable]] = {}

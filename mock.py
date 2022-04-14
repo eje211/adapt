@@ -38,17 +38,17 @@ class MockPolicy(Policy):
 
     policy_xpath: ClassVar[Mapping[PolicyFields, IndexedXpath]] = {
         PolicyFields.Id:
-            IndexedXpath('//label[@for="id"]/following-sibling::span/text()', 0),
+            IndexedXpath('.//label[@for="id"]/following-sibling::span/text()', 0),
         PolicyFields.Premium:
-            IndexedXpath('//label[@for="premium"]/following-sibling::span/text()', 0),
+            IndexedXpath('.//label[@for="premium"]/following-sibling::span/text()', 0),
         PolicyFields.Status:
-            IndexedXpath('//label[@for="status"]/following-sibling::span/text()', 0),
+            IndexedXpath('.//label[@for="status"]/following-sibling::span/text()', 0),
         PolicyFields.EffectiveDate:
-            IndexedXpath('//label[@for="effectiveDate"]/following-sibling::span/text()', 0),
+            IndexedXpath('.//label[@for="effectiveDate"]/following-sibling::span/text()', 0),
         PolicyFields.TerminationDate:
-            IndexedXpath('//label[@for="terminationDate"]/following-sibling::span/text()', 0),
+            IndexedXpath('.//label[@for="terminationDate"]/following-sibling::span/text()', 0),
         PolicyFields.LastPaymentDate:
-            IndexedXpath('//label[@for="lastPaymentDate"]/following-sibling::span/text()', 0),
+            IndexedXpath('.//label[@for="lastPaymentDate"]/following-sibling::span/text()', 0),
     }
 
 
@@ -75,14 +75,10 @@ class Mock(Carrier):
     POLICIES = '//li[@class="list-group-item"]'
 
     agent_xpath: ClassVar[Mapping[Agent.Fields, IndexedXpath]] = {
-        PolicyFields.Id: IndexedXpath('id', 0),
-        PolicyFields.Premium: IndexedXpath('premium', 0),
-        PolicyFields.Status: IndexedXpath('status', 0),
-        PolicyFields.EffectiveDate: IndexedXpath('effective_date', 0),
-        PolicyFields.TerminationDate: IndexedXpath('termination_date', 0),
-        PolicyFields.LastPaymentDate: IndexedXpath('last_payment_date', 0),
-        PolicyFields.CommissionRate: IndexedXpath('termination_date', 0),
-        PolicyFields.NumberOfInsured: IndexedXpath('last_payment_date', 0),
+        Agent.Fields.Name: IndexedXpath('//dd[@data-value-for="name"]/text()', 0),
+        Agent.Fields.ProducerCode: IndexedXpath('//dd[@data-value-for="producerCode"]/text()', 0),
+        Agent.Fields.AgencyName: IndexedXpath('//dd[@data-value-for="agencyName"]/text()', 0),
+        Agent.Fields.AgencyCode: IndexedXpath('//dd[@data-value-for="agencyCode"]/text()', 0),
     }
 
     customer_xpath: Mapping[Customer.Fields, IndexedXpath] = {
@@ -97,9 +93,10 @@ class Mock(Carrier):
     }
 
     @classmethod
-    def fetch_policies(cls,  policy: lxml.html.HtmlElement, _) -> Generator[Type[Policy]]:
-        for policy_object in Carrier.fetch_policies(policy, cls.POLICIES):
-            yield cls.fetch_policy(policy_object)
+    def fetch_policies(cls,  policy: lxml.html.HtmlElement, _) -> Generator[Type[Policy], None, None]:
+        for xml_object in Carrier.fetch_policies(policy, cls.POLICIES):
+            placeholder_object = cls.fetch_policy(xml_object)
+            yield placeholder_object
 
     @classmethod
     def fetch_policy(cls, tree: lxml.html.HtmlElement, _=None):

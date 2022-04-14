@@ -1,10 +1,14 @@
+"""
+All the custom types that this script uses.
+"""
+
 from dataclasses import dataclass
-from typing import ClassVar, Mapping, Optional, Callable, List, Type
+from typing import ClassVar, Mapping, Optional, Callable, List
 from collections import namedtuple
 from enum import Enum, auto
-from carrier import Policy
 
-
+# An XPath reference and index of which item will be returned if more than one
+# result is expected.
 IndexedXpath = namedtuple('IndexedXpath', ['xpath', 'place'])
 
 
@@ -31,6 +35,18 @@ class Agent:
         Fields.AgencyCode: str
     }
 
+    _serialize = ['name', 'producer_code', 'agency_name', 'agency_code']
+
+    def to_dict(self) -> dict:
+        """
+        Serialize to a dictionary.
+        """
+        agent_copy = self.__dict__.copy()
+        for key in agent_copy.copy().keys():
+            if key not in self._serialize:
+                del agent_copy[key]
+        return agent_copy
+
 
 @dataclass
 class Customer:
@@ -42,9 +58,9 @@ class Customer:
     id: str
     email: str
     address: str
-    agent: Agent
-    policies: List[Type[Policy]]
     ssn: Optional[int] = None
+    agent: Optional[Agent] = None
+    policies: Optional[List] = None
 
     class Fields(Enum):
         Name = auto()
@@ -60,6 +76,20 @@ class Customer:
         Fields.Address: str,
         Fields.SSN: int,
     }
+
+    _serialize = ['name', 'id', 'email', 'address', 'ssn', 'agent', 'policies']
+
+    def to_dict(self) -> dict:
+        """
+        Serialize to a dictionary.
+        """
+        customer_copy = self.__dict__.copy()
+        for key in customer_copy.copy().keys():
+            if key not in self._serialize:
+                del customer_copy[key]
+        customer_copy['agent'] = customer_copy['agent'].to_dict()
+        customer_copy['policies'] = {key: policy.to_dict() for key, policy in customer_copy['policies'].items()}
+        return customer_copy
 
 
 class PolicyFields(Enum):

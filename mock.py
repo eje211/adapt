@@ -62,6 +62,8 @@ class Mock(Carrier):
     def __init__(self):
         self.policy_elements: Mapping[int, lxml.html.HtmlElement] = {}
 
+    name = "Mock Indemnity"
+
     policy_type = MockPolicy
 
     tree: Optional[lxml.html.HtmlElement] = None
@@ -93,9 +95,10 @@ class Mock(Carrier):
     }
 
     @classmethod
-    def fetch_policy(cls,  _, policy: lxml.html.HtmlElement):
-        return super().fetch_policy(MockPolicy, policy)
+    def fetch_policies(cls,  policy: lxml.html.HtmlElement, _):
+        for policy_object in Carrier.fetch_policies(policy, cls.POLICIES):
+            yield cls.fetch_policy(policy_object)
 
     @classmethod
-    def fetch_policies(cls, tree: lxml.html.HtmlElement, policies: List[str]):
-        return Carrier.fetch_policies(cls.tree, cls.POLICIES)
+    def fetch_policy(cls, tree: lxml.html.HtmlElement, _=None):
+        return Carrier.fetch_policy(tree, MockPolicy)

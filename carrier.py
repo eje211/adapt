@@ -12,6 +12,8 @@ class Carrier(ABC):
     An abstract class that all carriers will be based on.
     """
 
+    name = "Generic carrier"
+
     # The root of the page of XPath searches.
     tree: lxml.html.HtmlElement
 
@@ -67,7 +69,7 @@ class Carrier(ABC):
             yield policy
 
     @classmethod
-    def fetch_policy(cls, policy_type, policy: lxml.html.HtmlElement):
+    def fetch_policy(cls, policy: lxml.html.HtmlElement, policy_type):
         """
         Fetch data for a single policy and build its object.
         """

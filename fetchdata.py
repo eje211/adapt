@@ -3,14 +3,36 @@ import urllib.request
 import lxml.html
 
 from carrier import Carrier
-from customtypes import Customer
+from customtypes import Customer, Agent, PolicyFields
 from lxml.html.soupparser import fromstring
 
 
 class FetchData:
+    customers = {}
+    agents = {}
+    policies = {}
+
     def __init__(self, carrier: Carrier):
         self.carrier = carrier
         self.uri = self.carrier.URI
+        self.data = {}
+
+    def fetch_all(self):
+        """
+        Scrape all the data for the loaded agency and store it in this instance.
+        """
+        print(f'Getting customer data for {self.carrier.name} ...')
+        self.data['customer_data'] = self.scrape_unique_item(Customer)
+        print(f'Getting carrier data for {self.carrier.name} ...')
+        self.data['agent_data'] = self.scrape_unique_item(Agent)
+        print(f'Getting policy data for {self.carrier.name} ...')
+        self.data['policy_data'] = self.scrape_policies()
+        print('Aggregating...')
+        self.customers[self.data['customer_data'][Customer.Fields.Id]] = self.data['customer_data']
+        self.agents[self.data['agent_data'][Agent.Fields.Id]] = self.data['agent_data']
+        for policy in self.data['policy_data']:
+            self.policies[policy[PolicyFields.Id]] = policy
+        print('All the data has been scraped and aggregated.')
 
     @staticmethod
     def encoding() -> str:

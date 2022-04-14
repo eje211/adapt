@@ -30,7 +30,7 @@ class Placeholder(Carrier):
         commission_rate: Decimal
         number_of_insured: int
 
-        _fields: ClassVar[List[PolicyFields]] = [
+        used_fields: ClassVar[List[PolicyFields]] = [
             PolicyFields.Id, PolicyFields.Premium, PolicyFields.Status,
             PolicyFields.EffectiveDate, PolicyFields.TerminationDate,
             PolicyFields.LastPaymentDate, PolicyFields.CommissionRate,
@@ -40,26 +40,39 @@ class Placeholder(Carrier):
         data_types: ClassVar[Mapping[PolicyFields, Callable]] = {
             PolicyFields.Id: str,
             PolicyFields.Premium: Decimal,
-            PolicyFields.Status: Status,
+            PolicyFields.Status: Status.__getitem__,
             PolicyFields.EffectiveDate: Carrier.us_date,
             PolicyFields.TerminationDate: Carrier.us_date,
             PolicyFields.LastPaymentDate: Carrier.us_date,
-            PolicyFields.CommissionRate: Decimal,
+            PolicyFields.CommissionRate: Carrier.to_decimal,
             PolicyFields.NumberOfInsured: int
         }
 
-        agents_xpath: ClassVar[Mapping[Agent.Fields, IndexedXpath]] = {
-            PolicyFields.Id: IndexedXpath('id', 0),
-            PolicyFields.Premium: IndexedXpath('premium', 0),
-            PolicyFields.Status: IndexedXpath('status', 0),
-            PolicyFields.EffectiveDate: IndexedXpath('effective_date', 0),
-            PolicyFields.TerminationDate: IndexedXpath('termination_date', 0),
-            PolicyFields.LastPaymentDate: IndexedXpath('last_payment_date', 0),
-            PolicyFields.CommissionRate: IndexedXpath('termination_date', 0),
-            PolicyFields.NumberOfInsured: IndexedXpath('last_payment_date', 0),
+        policy_xpath: ClassVar[Mapping[PolicyFields, IndexedXpath]] = {
+            PolicyFields.Id:
+                IndexedXpath('//td/text()', 0),
+            PolicyFields.Premium:
+                IndexedXpath('//td/text()', 1),
+            PolicyFields.Status:
+                IndexedXpath('//td/text()', 2),
+            PolicyFields.EffectiveDate:
+                IndexedXpath('//td/text()', 3),
+            PolicyFields.TerminationDate:
+                IndexedXpath('//td/text()', 4),
+            PolicyFields.LastPaymentDate:
+                IndexedXpath('substring((//td[@class="details-row"]/div/text()), 19)', 2),
+            PolicyFields.CommissionRate:
+                IndexedXpath('substring((//td[@class="details-row"]/div/text())[2], 15)', 0),
+            # Only works up to two digits. A type function can be made to handle more:
+            PolicyFields.NumberOfInsured:
+                IndexedXpath('substring((//td[@class="details-row"]/div/text())[3], 20)', 0),
         }
 
     URI = 'https://scraping-interview.onrender.com/placeholder_carrier/f02dkl4e/policies/1'
+
+    POLICIES = '//tr[contains(@class, "policy-info-row")]'
+
+    policy_type = PlaceholderPolicy
 
     agents_xpath: Mapping[Agent.Fields, IndexedXpath] = {
         Agent.Fields.Name:
@@ -87,19 +100,50 @@ class Placeholder(Carrier):
                          'div[@style="display:none"]//text()', 1),
     }
 
-    def fetch_policies(self):
-        yield self.fetch_on_this_page(self.tree)
+    @classmethod
+    def fetch_policies(cls, tree: lxml.html.HtmlElement, _):
+        if tree is not None:
+            policies = cls.fetch_on_this_page(tree)
+            for policy in policies:
+                yield policy
 
-    def fetch_on_this_page(self, node):
-        for policy in self.tree.xpath(self.POLICIES):
-            yield self.fetch_policy(policy)
-        next_link = self.tree.xpath('//tfoot//a[contains(., "Next")]/@href')
+    @classmethod
+    def host(cls) -> str:
+        uri = cls.URI.split('/')[:3]
+        uri = '/'.join(uri)
+        return uri
+
+    @classmethod
+    def fetch_on_this_page(cls, node):
+        print(f'receiving: {node}')
+        for policy in node.xpath(cls.POLICIES):
+            details = policy.xpath('following-sibling::tr')
+            parent = lxml.html.HtmlElement('div')
+            parent.insert(0, details[0])
+            parent.insert(0, policy)
+            result = cls.fetch_policy(None, parent)
+            yield result
+        for page in cls.change_page(node):
+            yield page
+
+    @classmethod
+    def change_page(cls, node):
+        next_link = node.xpath('//tfoot//a[contains(., "Next")]/@href')
         if len(next_link) == 0:
             return
-        next_link = next_link[0].split('=')[1][1:-1]
-        yield self.get_next_page(next_link)
+            # next_link = next_link[0].split('=')[1][1:-1]
+        next_link = cls.host() + next_link[0]
+        for pages in  cls.get_next_page(next_link):
+            for page in pages:
+                yield page
 
-    def get_next_page(self, link):
+    @classmethod
+    def get_next_page(cls, link):
         from fetchdata import FetchData
         next_page = FetchData.uri_to_xpath(link)
-        yield self.fetch_on_this_page(next_page)
+        cls.tree = next_page
+        yield cls.fetch_policies(next_page, None)
+
+    @classmethod
+    def fetch_policy(cls, _, policy: lxml.html.HtmlElement):
+        return Carrier.fetch_policy(cls.PlaceholderPolicy, policy)

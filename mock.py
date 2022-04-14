@@ -30,19 +30,25 @@ class MockPolicy(Policy):
     data_types: ClassVar[Mapping[PolicyFields, Callable]] = {
         PolicyFields.Id: str,
         PolicyFields.Premium: Decimal,
-        PolicyFields.Status: Status,
+        PolicyFields.Status: Status.__getitem__,
         PolicyFields.EffectiveDate: Carrier.us_date,
         PolicyFields.TerminationDate: Carrier.us_date,
         PolicyFields.LastPaymentDate: Carrier.us_date
     }
 
     policy_xpath: ClassVar[Mapping[PolicyFields, IndexedXpath]] = {
-        PolicyFields.Id: IndexedXpath('//div[@for="id"]', 0),
-        PolicyFields.Premium: IndexedXpath('//div[@for="premium"]', 0),
-        PolicyFields.Status: IndexedXpath('//div[@for="status"]', 0),
-        PolicyFields.EffectiveDate: IndexedXpath('//div[@for="effectiveDate"]', 0),
-        PolicyFields.TerminationDate: IndexedXpath('//div[@for="terminationDate"]', 0),
-        PolicyFields.LastPaymentDate: IndexedXpath('//div[@for="lastPaymentDate"]', 0),
+        PolicyFields.Id:
+            IndexedXpath('//label[@for="id"]/following-sibling::span/text()', 0),
+        PolicyFields.Premium:
+            IndexedXpath('//label[@for="premium"]/following-sibling::span/text()', 0),
+        PolicyFields.Status:
+            IndexedXpath('//label[@for="status"]/following-sibling::span/text()', 0),
+        PolicyFields.EffectiveDate:
+            IndexedXpath('//label[@for="effectiveDate"]/following-sibling::span/text()', 0),
+        PolicyFields.TerminationDate:
+            IndexedXpath('//label[@for="terminationDate"]/following-sibling::span/text()', 0),
+        PolicyFields.LastPaymentDate:
+            IndexedXpath('//label[@for="lastPaymentDate"]/following-sibling::span/text()', 0),
     }
 
 
@@ -62,26 +68,34 @@ class Mock(Carrier):
 
     URI = 'https://scraping-interview.onrender.com/mock_indemnity/a0dfjw9a'
 
-    POLICIES = '//tr[contains(@class, "policy-info-row")]'
+    POLICIES = '//li[@class="list-group-item"]'
 
-    agents_xpath: Mapping[Agent.Fields, IndexedXpath] = {
-        Agent.Fields.Name:
-            IndexedXpath('//dd[@class="value-name value-holder"][@data-value-for="name"]/text()', 0),
-        Agent.Fields.ProducerCode:
-            IndexedXpath('//dd[@class="value-producerCode value-holder"][@data-value-for="producerCode"]/text()', 0),
-        Agent.Fields.AgencyName:
-            IndexedXpath('//dd[@class="value-agencyName value-holder"][@data-value-for="agencyName"]/text()', 0),
-        Agent.Fields.AgencyCode:
-            IndexedXpath('//dd[@class="value-agencyCode value-holder"][@data-value-for="agencyCode"]/text()', 0),
+    agents_xpath: ClassVar[Mapping[Agent.Fields, IndexedXpath]] = {
+        PolicyFields.Id: IndexedXpath('id', 0),
+        PolicyFields.Premium: IndexedXpath('premium', 0),
+        PolicyFields.Status: IndexedXpath('status', 0),
+        PolicyFields.EffectiveDate: IndexedXpath('effective_date', 0),
+        PolicyFields.TerminationDate: IndexedXpath('termination_date', 0),
+        PolicyFields.LastPaymentDate: IndexedXpath('last_payment_date', 0),
+        PolicyFields.CommissionRate: IndexedXpath('termination_date', 0),
+        PolicyFields.NumberOfInsured: IndexedXpath('last_payment_date', 0),
     }
 
     customer_xpath: Mapping[Customer.Fields, IndexedXpath] = {
         Customer.Fields.Name:
-            IndexedXpath('//dd [@class="value-name value-holder"][@data-value-for="name"]/text()', 1),
+            IndexedXpath('//dd[@class="value-name value-holder"][@data-value-for="name"]/text()', 1),
         Customer.Fields.Id:
-            IndexedXpath('//dd [@class="value-id value-holder"][@data-value-for="id"]/text()', 0),
+            IndexedXpath('//dd[@class="value-id value-holder"][@data-value-for="id"]/text()', 0),
         Customer.Fields.Email:
-            IndexedXpath('//dd [@class="value-email value-holder"][@data-value-for="email"]/text()', 0),
+            IndexedXpath('//dd[@class="value-email value-holder"][@data-value-for="email"]/text()', 0),
         Customer.Fields.Address:
-            IndexedXpath('//dd [@class="value-address value-holder"][@data-value-for="address"]/text()', 0)
+            IndexedXpath('//dd[@class="value-address value-holder"][@data-value-for="address"]/text()', 0)
     }
+
+    @classmethod
+    def fetch_policy(cls,  _, policy: lxml.html.HtmlElement):
+        return super().fetch_policy(MockPolicy, policy)
+
+    @classmethod
+    def fetch_policies(cls, tree: lxml.html.HtmlElement, policies: List[str]):
+        return Carrier.fetch_policies(cls.tree, cls.POLICIES)

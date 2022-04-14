@@ -5,14 +5,12 @@ import lxml.html
 from carrier import Carrier
 from customtypes import Customer
 from lxml.html.soupparser import fromstring
-from typing import Optional
 
 
 class FetchData:
     def __init__(self, carrier: Carrier):
         self.carrier = carrier
         self.uri = self.carrier.URI
-        self.tree: Optional[lxml.html.HtmlElement] = None
 
     @staticmethod
     def encoding() -> str:
@@ -21,26 +19,23 @@ class FetchData:
         """
         return 'utf-8'
 
-    def uri_to_xpath(self, uri: str) -> lxml.html.HtmlElement:
+    @staticmethod
+    def uri_to_xpath(uri: str) -> lxml.html.HtmlElement:
         """
         Given a URI, fetch its content and turn it into a searchable XML tree.
         :param uri: The URI to fetch.
         :return: The destination of the URI as a searchable XML tree.
         """
         response = urllib.request.urlopen(uri)
-        source = response.read().decode(self.encoding())
+        source = response.read().decode(FetchData.encoding())
         return fromstring(source)
-
-    @staticmethod
-    def parallel_fetch():
-        return None
 
     def get_root(self):
         """
         Fetch the raw HTML text specified by this carrier's URI. Turn into a tree usable by XPath.
         Set the value to the "tree" member of this instance.
         """
-        self.tree = self.uri_to_xpath(self.uri)
+        self.carrier.tree = self.uri_to_xpath(self.uri)
 
     def scrape_unique_item(self, cls):
         """
@@ -53,7 +48,7 @@ class FetchData:
         fields = []
         for field in cls:
             indexed_xpath = self.carrier.customer_xpath[field]
-            node = self.tree.xpath(indexed_xpath.xpath)
+            node = self.carrier.tree.xpath(indexed_xpath.xpath)
             text = None
             if isinstance(node, list):
                 text = node[indexed_xpath.place]
@@ -62,3 +57,8 @@ class FetchData:
             if text:
                 fields.append(Customer.types[field](text))
         return cls(*fields)
+
+    def scrape_policies(self):
+        self.get_root()
+        for policy in list(self.carrier.fetch_policies(self.carrier.tree, self.carrier.POLICIES)):
+            yield policy
